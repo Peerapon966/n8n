@@ -1,0 +1,1213 @@
+{
+  "updatedAt": "2025-12-17T09:43:23.936Z",
+  "createdAt": "2025-11-25T13:05:52.477Z",
+  "id": "dfUhBWAAfPzdINj6",
+  "name": "[POST] /api/v1/ocr",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"key\": {{ $('Input valid').item.json.input.key.quote() }},\n  \"orientation\": {{ $('Input valid').item.json.input.orientation }},\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        -376
+      ],
+      "id": "aa45d263-ed40-4ba5-a66c-e6774a010147",
+      "name": "Set Lambda payload",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "httpMethod": "={{ $workflow.name.split(' ')[0].trim().replace(/[\\[\\]]/g, '').toUpperCase() }}",
+        "path": "={{ $workflow.name.split(' ')[1].trim() }}",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        -232
+      ],
+      "id": "aa58a47a-e12c-4317-9c03-198ffc4eb779",
+      "name": "Webhook",
+      "webhookId": "fd27285a-9109-4b30-90ed-4fc6b23437d7",
+      "retryOnFail": true,
+      "executeOnce": true,
+      "alwaysOutputData": false,
+      "notesInFlow": true,
+      "notes": "{\n    key: string,\n    prompt: string,\n    orientation: number\n}"
+    },
+    {
+      "parameters": {
+        "function": "={{ $env.FIRSTPAGE_PRESIGN_LAMBDA_FUNCTION_ARN }}",
+        "payload": "={{ $json }}"
+      },
+      "type": "n8n-nodes-base.awsLambda",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -376
+      ],
+      "id": "12ef7cdb-af3a-4f3a-aa90-e11fe0884822",
+      "name": "Get firstpage presigned URL",
+      "executeOnce": true,
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "credentials": {
+        "aws": {
+          "id": "LVVCpJYQF9pae3RB",
+          "name": "AWS (IAM) account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AZURE_OPENAI_TARGET_URI }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "azureOpenAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"OCR the document and return only strict ASCII JSON. No extra text, no hidden Unicode.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": {{ $('Input valid').item.json.input.prompt.replaceAll('\\n', '').quote() }}\n        },\n        {\n          \"type\": \"image_url\",\n          \"image_url\": {\n            \"url\": {{ $json.result.url.quote() }}\n          }\n        }\n      ]\n    }\n  ],\n  \"max_completion_tokens\": 13107,\n  \"temperature\": 1,\n  \"top_p\": 1,\n  \"frequency_penalty\": 0,\n  \"presence_penalty\": 0,\n  \"model\": \"{{ $env.AZURE_AI_RESOURCE_NAME }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1264,
+        -448
+      ],
+      "id": "770b120a-f8d4-41af-87ca-1494557e0009",
+      "name": "Call OCR",
+      "retryOnFail": false,
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "IcUgVMtvnEg95YdZ",
+          "name": "Azure Open AI account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9225143f-31c9-4aa3-8ff3-1a2cc97d5263",
+              "leftValue": "={{ /(\\(404\\).+Not Found)/.test($json.error) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1264,
+        32
+      ],
+      "id": "f2e5c010-cc60-48df-adcf-1df414ea376f",
+      "name": "Is 404 error"
+    },
+    {
+      "parameters": {
+        "command": "=sleep 1 && aws s3api head-object --bucket ${S3_INVOICE_BUCKET_NAME} --key {{ $('Input valid').item.json.input.key }} > /dev/null"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        592,
+        -232
+      ],
+      "id": "7b60834d-07f1-4461-8b10-778941ef6617",
+      "name": "Check file exists",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31c49fcb-70c3-4337-8f59-a9316e5521c2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        144,
+        -136
+      ],
+      "id": "2e4ae288-a653-4e54-abbd-c51daa95842e",
+      "name": "Input valid"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7enGhBPQhi23ujs4",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/7enGhBPQhi23ujs4",
+          "cachedResultName": "**Write log to file"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "log": "={{ Object.assign({}, { \"timestamp\": $now.toISO(), \"level\": \"INFO\" }, $json) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "log",
+              "displayName": "log",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        -328
+      ],
+      "id": "41e33670-e6a1-4a0e-887f-d9914953d318",
+      "name": "Log request"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NUPg08P6iZIbhUvb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NUPg08P6iZIbhUvb",
+          "cachedResultName": "**Validate input"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schemas": "=[\n  {\n    \"name\": \"key\",\n    \"type\": \"string\",\n    \"optional\": false\n  },\n  {\n    \"name\": \"prompt\",\n    \"type\": \"string\",\n    \"optional\": false\n  },\n  {\n    \"name\": \"documentId\",\n    \"type\": \"number\",\n    \"optional\": false\n  },\n  {\n    \"name\": \"orientation\",\n    \"type\": \"number\",\n    \"optional\": true,\n    \"default\": 1\n  }\n]",
+            "values": "={{ $json.body }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "schemas",
+              "displayName": "schemas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "values",
+              "displayName": "values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        -136
+      ],
+      "id": "057c9cfd-68a8-4528-aedc-74b27c35b3b2",
+      "name": "Validate input"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "Validate input",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "errorCode": 400,
+            "errors": "={{ $json.errors }}",
+            "includeErrInResponse": true,
+            "overwriteErrMsg": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        -40
+      ],
+      "id": "58969b53-2dec-450a-9fb1-40eab8e4f47e",
+      "name": "Handle 400 error",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "=Document not found; Key: {{ $('Input valid').item.json.input.key }}",
+            "errorCode": 404,
+            "overwriteErrMsg": false,
+            "includeErrInResponse": false,
+            "errors": "[]"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        80
+      ],
+      "id": "d776b108-3f8d-4fa5-b244-8a9892ee3b1d",
+      "name": "Handle 404 error",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        592,
+        -40
+      ],
+      "id": "3956664b-6477-4460-81a6-dbb0fcc74067",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": true,\n  \"statusCode\": 200,\n  \"message\": null,\n  \"data\": {},\n  \"errors\": []\n}\n",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        368,
+        -232
+      ],
+      "id": "56ccfbaa-0272-4e55-b016-619256c5ccda",
+      "name": "Respond",
+      "alwaysOutputData": true,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.error.description }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": true,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        -352
+      ],
+      "id": "f3cc4c2c-923b-4f24-99a3-e705d50744b8",
+      "name": "Handle 500 error (Azure GPT4o)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.error.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": true,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        -136
+      ],
+      "id": "b310f5e9-026b-4379-b30a-91a5a9153983",
+      "name": "Handle 500 error (AWS CLI)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = {\n  documentId: $('Input valid').first().json.input.documentId,\n  ...JSON.parse(\n    $input\n      .first()\n      .json.choices[0]\n      .message\n      .content\n      .replace('```json\\n', '')\n      .replace('\\n```', '')\n      .replaceAll(' ', '')\n  )\n}\n\nreturn {\n  status: true,\n  statusCode: 200,\n  message: null,\n  data: {\n    ...data,\n    amount: Number(data.amount.replaceAll(',', '')),\n    vat: Number(data.vat.replaceAll(',', '')),\n    amount_include_vat: Number(data.amount_include_vat.replaceAll(',', ''))\n  },\n  errors: []\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -544
+      ],
+      "id": "e4665f42-f42e-4f4d-9a24-f7f13c2acea2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $json.data }}",
+            "message": "={{ $json.error.message }}",
+            "errorCode": 500,
+            "overwriteErrMsg": false,
+            "includeErrInResponse": true,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1936,
+        -232
+      ],
+      "id": "5b7d5835-e703-4189-a11f-6e9afea1fc31",
+      "name": "Handle 500 error (TTI Creditor API)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tti-creditor-api.ndththai.com/services/tspcore/linkage/ocr-creditor/receive-ocr-document",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1712,
+        -232
+      ],
+      "id": "ceee735d-375c-4875-be21-c2d9792d8f61",
+      "name": "Call TTI Creditor API",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "ukxMHCWh2tn9MY5J",
+          "name": "Bearer Auth account"
+        },
+        "httpHeaderAuth": {
+          "id": "rkt3slgybKCAqvoJ",
+          "name": "TTI Creditor API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "connections": {
+    "Set Lambda payload": {
+      "main": [
+        [
+          {
+            "node": "Get firstpage presigned URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Log request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Validate input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get firstpage presigned URL": {
+      "main": [
+        [
+          {
+            "node": "Call OCR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (AWS CLI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OCR": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (Azure GPT4o)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is 404 error": {
+      "main": [
+        [
+          {
+            "node": "Handle 404 error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (AWS CLI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check file exists": {
+      "main": [
+        [
+          {
+            "node": "Set Lambda payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is 404 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input valid": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate input": {
+      "main": [
+        [
+          {
+            "node": "Input valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 400 error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 404 error": {
+      "main": [
+        [
+          {
+            "node": "Call TTI Creditor API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond": {
+      "main": [
+        [
+          {
+            "node": "Check file exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (Azure GPT4o)": {
+      "main": [
+        [
+          {
+            "node": "Call TTI Creditor API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (AWS CLI)": {
+      "main": [
+        [
+          {
+            "node": "Call TTI Creditor API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Call TTI Creditor API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call TTI Creditor API": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Handle 500 error (TTI Creditor API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "fpp8hRV2VWjQKfOQ"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "a8b523f2-2eee-47dd-bb73-6d34626f9453",
+  "versionCounter": 368,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2025-12-10T13:18:15.075Z",
+      "createdAt": "2025-12-10T13:18:15.075Z",
+      "role": "workflow:owner",
+      "workflowId": "dfUhBWAAfPzdINj6",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,1038 @@
+{
+  "updatedAt": "2025-12-16T06:37:23.204Z",
+  "createdAt": "2025-11-15T16:21:12.384Z",
+  "id": "OOBZnq5F03hVGVvT",
+  "name": "[DELETE] api/v1/invoices",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "={{ $workflow.name.split(' ')[0].trim().replace(/[\\[\\]]/g, '').toUpperCase() }}",
+        "path": "={{ $workflow.name.split(' ')[1].trim() }}",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -240,
+        -88
+      ],
+      "id": "dd05353d-f0c2-432d-b504-241e62ed9f2d",
+      "name": "Webhook",
+      "webhookId": "6a6b8629-7d99-4cb4-a4e0-ac258aa25427",
+      "retryOnFail": true,
+      "executeOnce": true,
+      "alwaysOutputData": false,
+      "notesInFlow": true,
+      "notes": "{\n    key: string,\n    username: string\n}"
+    },
+    {
+      "parameters": {
+        "operation": "deleteTable",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "invoice",
+          "mode": "list",
+          "cachedResultName": "invoice"
+        },
+        "deleteCommand": "delete",
+        "where": {
+          "values": [
+            {
+              "column": "key",
+              "value": "={{ $json.key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        -64
+      ],
+      "id": "eef2cf81-a5a4-42fb-9ee4-732400786e3c",
+      "name": "Delete invoice item",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        656,
+        -232
+      ],
+      "id": "70dee42b-76e6-495e-af62-f59fb52e9680",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        -136
+      ],
+      "id": "6a5d9564-ac9d-43b6-807f-b9f071bff8f3"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "s3Raw",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9021426d-88b4-4e06-90c8-35dc2f800cd9"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "s3Raw"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "37d66f70-bf38-4a06-bf1c-6c132e2e16bb",
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "s3Invoice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "s3Invoice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d2df3a19-ff01-4b51-9b4a-5935c9a33178",
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "pg",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pg"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        880,
+        -184
+      ],
+      "id": "40bc8d2b-1d96-462e-8553-b52b5ba74338",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "bucketName": "={{ $env.S3_INVOICE_BUCKET_NAME }}",
+        "fileKey": "={{ $json.key }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -496
+      ],
+      "id": "1206c1b7-4297-479a-bb90-dfbd5669ad8f",
+      "name": "Delete raw file",
+      "executeOnce": true,
+      "credentials": {
+        "aws": {
+          "id": "LVVCpJYQF9pae3RB",
+          "name": "AWS (IAM) account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "bucketName": "={{ $env.S3_INVOICE_BUCKET_NAME }}",
+        "fileKey": "={{ $json.key }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -256
+      ],
+      "id": "3594f77e-8113-4d8d-8e2d-5813429a4a24",
+      "name": "Delete invoice",
+      "executeOnce": true,
+      "credentials": {
+        "aws": {
+          "id": "LVVCpJYQF9pae3RB",
+          "name": "AWS (IAM) account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function keyWithPrefix(key) {\n  const prefix = 'extracted_first_page_'\n  const filenameStartIdx = key.lastIndexOf('/') + 1\n  const [pathname, filename] = [key.substring(0, filenameStartIdx), key.substring(filenameStartIdx)]\n\n  return pathname + prefix + filename\n}\n\nconst key = $input.first().json.input.key;\nconst output = [\n  {\n    target: \"s3Raw\",\n    key\n  },\n  {\n    target: \"s3Invoice\",\n    key: keyWithPrefix(key)\n  },\n  {\n    target: \"pg\",\n    key\n  }\n]\n\nreturn output"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -232
+      ],
+      "id": "7931da89-c5fa-44e6-8a6f-51ec176cd8ae",
+      "name": "Prepare payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31c49fcb-70c3-4337-8f59-a9316e5521c2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        8
+      ],
+      "id": "716cfed0-fef7-434b-a509-7e4af081b842",
+      "name": "Input valid"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7enGhBPQhi23ujs4",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/7enGhBPQhi23ujs4",
+          "cachedResultName": "**Write log to file"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "log": "={{ Object.assign({}, { \"timestamp\": $now.toISO(), \"level\": \"INFO\" }, $json) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "log",
+              "displayName": "log",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        -184
+      ],
+      "id": "e32af9a2-693b-4456-8fee-e39428651bf4",
+      "name": "Log request"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "Validate input",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "errorCode": 400,
+            "errors": "={{ $json.errors }}",
+            "includeErrInResponse": true,
+            "overwriteErrMsg": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        432,
+        104
+      ],
+      "id": "e1b3fe71-2a58-4e85-a400-1b89b99d88f7",
+      "name": "Handle 400 error",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.message.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": false,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1328,
+        152
+      ],
+      "id": "1858fa81-5354-4c1a-9692-ca032b66499a",
+      "name": "Handle 500 error (PostgreSQL)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.error.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": true,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1328,
+        -448
+      ],
+      "id": "ef72d038-bfbd-45d4-9c50-c02d6a624c7e",
+      "name": "Handle 500 error (S3)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NUPg08P6iZIbhUvb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NUPg08P6iZIbhUvb",
+          "cachedResultName": "**Validate input"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schemas": "=[\n  {\n    \"name\": \"key\",\n    \"type\": \"string\",\n    \"optional\": false\n  },\n  {\n    \"name\": \"username\",\n    \"type\": \"string\",\n    \"optional\": false\n  }\n]",
+            "values": "={{ $json.body }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "schemas",
+              "displayName": "schemas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "values",
+              "displayName": "values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        8
+      ],
+      "id": "10af8db1-0fce-44c8-8ba3-763be3f3ddf5",
+      "name": "Validate input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": true,\n  \"statusCode\": 200,\n  \"message\": null,\n  \"data\": {},\n  \"errors\": []\n}\n",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        -376
+      ],
+      "id": "37ef552f-6aaf-4355-8e77-adf4fc18ffe3",
+      "name": "Respond",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1552,
+        -112
+      ],
+      "id": "0abbd042-8d9c-44ba-8317-6ab41c622963",
+      "name": "Respond 500 error",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        104
+      ],
+      "id": "bb7e7166-f640-4ce1-8bca-27956ce217ea",
+      "name": "Respond 400 error",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Log request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Validate input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete invoice item": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (PostgreSQL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Delete raw file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete invoice item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete raw file": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (S3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete invoice": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (S3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare payload": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input valid": {
+      "main": [
+        [
+          {
+            "node": "Prepare payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (S3)": {
+      "main": [
+        [
+          {
+            "node": "Respond 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (PostgreSQL)": {
+      "main": [
+        [
+          {
+            "node": "Respond 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 400 error": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate input": {
+      "main": [
+        [
+          {
+            "node": "Input valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 500 error": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "fpp8hRV2VWjQKfOQ"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "80041e29-60ca-4fbb-ad1e-f06a493549db",
+  "versionCounter": 214,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2025-11-15T16:21:12.384Z",
+      "createdAt": "2025-11-15T16:21:12.384Z",
+      "role": "workflow:owner",
+      "workflowId": "OOBZnq5F03hVGVvT",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

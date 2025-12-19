@@ -1,0 +1,49 @@
+######################
+# Node
+######################
+/node/
+node_tmp/
+node_modules/
+npm-debug.log.*
+/.awcache/*
+/.cache-loader/*
+
+######################
+# Visual Studio Code
+######################
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+######################
+# Logs
+######################
+*.log*
+
+######################
+# Terraform
+######################
+backend.hcl
+**/.terraform
+**/terraform.tfstate*
+**/target
+**/*.pem
+
+######################
+# Seeder
+######################
+**/__pycache__/
+
+######################
+# Environment Variable
+######################
+.env
+**/prod*.env
+
+######################
+# Dump data
+######################
+**/data/*.sql

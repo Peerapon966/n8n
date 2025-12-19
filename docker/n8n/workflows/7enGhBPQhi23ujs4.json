@@ -1,0 +1,196 @@
+{
+  "updatedAt": "2025-12-12T22:15:16.718Z",
+  "createdAt": "2025-12-12T17:27:25.705Z",
+  "id": "7enGhBPQhi23ujs4",
+  "name": "**Write log to file",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "log",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        -112
+      ],
+      "id": "0abead5e-3c27-438f-8b7a-a83a0144fcb4",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "=log",
+        "binaryPropertyName": "log",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        -112
+      ],
+      "id": "2336500b-388f-44fe-9acb-badd3236b356",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const log = `${$now.toISO()} : ${JSON.stringify($input.first().json.log)}\\n`\n\nreturn [ {log} ]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -112
+      ],
+      "id": "bca54cdc-ddff-44fb-a41c-77dbca933c89",
+      "name": "Stringify log"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1f28379-1756-4112-a283-36d5bd5885f5",
+              "leftValue": "={{ $json.log }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        -112
+      ],
+      "id": "06a476d1-807c-46e8-aa70-1fcbeda6e146",
+      "name": "Check log not empty"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.ERROR_LOG_PATH.replace(/\\/$/, '') }}/{{ $today.format('yyyyMMdd') }}.log",
+        "dataPropertyName": "log",
+        "options": {
+          "append": true
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -112
+      ],
+      "id": "b5179782-c6fa-402f-a5e5-737bd111e034",
+      "name": "Write File to Disk"
+    }
+  ],
+  "connections": {
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Write File to Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Check log not empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stringify log": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check log not empty": {
+      "main": [
+        [
+          {
+            "node": "Stringify log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "fca40e8a-7789-49b9-8fad-07816ac3ca42",
+  "versionCounter": 19,
+  "triggerCount": 0,
+  "tags": [
+    {
+      "updatedAt": "2025-12-12T17:21:03.515Z",
+      "createdAt": "2025-12-12T17:21:03.515Z",
+      "id": "hvJeOftwKkWTy7R0",
+      "name": "internal"
+    }
+  ],
+  "shared": [
+    {
+      "updatedAt": "2025-12-12T17:27:25.705Z",
+      "createdAt": "2025-12-12T17:27:25.705Z",
+      "role": "workflow:owner",
+      "workflowId": "7enGhBPQhi23ujs4",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e;
+
+# Create Postgres non root user if configured
+if [ -n "${POSTGRES_NON_ROOT_USER:-}" ] && [ -n "${POSTGRES_NON_ROOT_PASSWORD:-}" ]; then
+	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+		CREATE USER ${POSTGRES_NON_ROOT_USER} WITH PASSWORD '${POSTGRES_NON_ROOT_PASSWORD}';
+		GRANT ALL PRIVILEGES ON SCHEMA public TO ${POSTGRES_NON_ROOT_USER};
+	EOSQL
+else
+	echo "SETUP INFO: No Environment variables given!"
+fi
+
+# Create n8n schema and user
+N8N_SCHEMA=${DB_POSTGRESDB_SCHEMA:-public}
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+	CREATE SCHEMA IF NOT EXISTS ${N8N_SCHEMA};
+	DO
+	\$do\$
+	BEGIN
+		IF EXISTS (
+				SELECT FROM pg_catalog.pg_roles
+				WHERE rolname = '${DB_POSTGRESDB_USER}') THEN
+
+				RAISE NOTICE 'Role "${DB_POSTGRESDB_USER}" already exists. Skipping.';
+		ELSE
+				CREATE USER ${DB_POSTGRESDB_USER} WITH PASSWORD '${DB_POSTGRESDB_PASSWORD}';
+		END IF;
+	END
+	\$do\$;
+	GRANT CREATE ON DATABASE ${POSTGRES_DB} TO ${DB_POSTGRESDB_USER};
+	GRANT ALL PRIVILEGES ON SCHEMA ${N8N_SCHEMA} TO ${DB_POSTGRESDB_USER};
+	ALTER USER ${DB_POSTGRESDB_USER} SET search_path TO ${N8N_SCHEMA};
+EOSQL

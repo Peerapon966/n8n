@@ -1,0 +1,1041 @@
+{
+  "updatedAt": "2025-12-16T06:33:01.820Z",
+  "createdAt": "2025-11-08T12:35:34.803Z",
+  "id": "0J7362ScIc5VIo9l",
+  "name": "[PUT] api/v1/invoices/upload-status",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": true,\n  \"statusCode\": 200,\n  \"message\": null,\n  \"data\": {},\n  \"errors\": []\n}\n",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1520,
+        -992
+      ],
+      "id": "5f1fb383-b1cb-4c1b-8102-611bd7f6f995",
+      "name": "Respond",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "={{ $workflow.name.split(' ')[0].trim().replace(/[\\[\\]]/g, '').toUpperCase() }}",
+        "path": "={{ $workflow.name.split(' ')[1].trim() }}",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        -872
+      ],
+      "id": "a33733fd-da8b-4cae-9f30-6353a1d74454",
+      "name": "Webhook",
+      "webhookId": "59e457a7-9259-4dc1-a768-18e9ebbd178b",
+      "retryOnFail": true,
+      "executeOnce": true,
+      "alwaysOutputData": false,
+      "notesInFlow": true,
+      "notes": "{\n    key: string,\n    username: string (optional)\n}"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "invoice",
+          "mode": "list",
+          "cachedResultName": "invoice"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $('Input valid').item.json.input.key }}",
+            "updated_by": "system",
+            "is_uploaded": "={{ true }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_by",
+              "displayName": "created_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_by",
+              "displayName": "updated_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "is_uploaded",
+              "displayName": "is_uploaded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        -1040
+      ],
+      "id": "31555e7a-38a9-40af-a264-c250c0d2791d",
+      "name": "Update invoice",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f483b1e3-b9fe-4025-97e3-8395e6185d6b",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        -848
+      ],
+      "id": "e975f6ab-5230-4587-98fc-a2aeec78a2d5",
+      "name": "Invoice exists"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS (SELECT 1 FROM invoice WHERE key = '{{ $json.input.key }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        400,
+        -848
+      ],
+      "id": "a7b657b1-2811-4002-a94e-3997d5d268b9",
+      "name": "Check invoice",
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "invoice",
+          "mode": "list",
+          "cachedResultName": "invoice"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_uploaded": true,
+            "key": "={{ $('Input valid').item.json.input.key }}",
+            "created_by": "={{ $('Username valid').item.json.input.username }}",
+            "updated_by": "={{ $('Username valid').item.json.input.username }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_by",
+              "displayName": "created_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_by",
+              "displayName": "updated_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_uploaded",
+              "displayName": "is_uploaded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        -752
+      ],
+      "id": "681f4b49-6c2a-4b63-ae40-1a9f91d77f9b",
+      "name": "Insert invoice",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31c49fcb-70c3-4337-8f59-a9316e5521c2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -776
+      ],
+      "id": "12686952-d84a-4c5a-aa3d-9abf67a56b53",
+      "name": "Input valid"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7enGhBPQhi23ujs4",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/7enGhBPQhi23ujs4",
+          "cachedResultName": "**Write log to file"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "log": "={{ Object.assign({}, { \"timestamp\": $now.toISO(), \"level\": \"INFO\" }, $json) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "log",
+              "displayName": "log",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -968
+      ],
+      "id": "c57c440a-c880-402c-9f8c-1fe09cedd2bd",
+      "name": "Log request"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "Validate input",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "errorCode": 400,
+            "errors": "={{ $json.errors }}",
+            "includeErrInResponse": true,
+            "overwriteErrMsg": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        -536
+      ],
+      "id": "d4e355d5-e210-471f-ae97-2e68d2dcd1c1",
+      "name": "Handle 400 error",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1520,
+        -536
+      ],
+      "id": "c172504a-fb0d-47eb-a99a-a69777152510",
+      "name": "Respond 400 error",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NUPg08P6iZIbhUvb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NUPg08P6iZIbhUvb",
+          "cachedResultName": "**Validate input"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schemas": "=[\n  {\n    \"name\": \"key\",\n    \"type\": \"string\",\n    \"optional\": false\n  }\n]",
+            "values": "={{ $json.body }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "schemas",
+              "displayName": "schemas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "values",
+              "displayName": "values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        -776
+      ],
+      "id": "6fbea290-557e-410d-8b49-f96e1e6b2a02",
+      "name": "Validate input"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NUPg08P6iZIbhUvb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NUPg08P6iZIbhUvb",
+          "cachedResultName": "**Validate input"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schemas": "=[\n  {\n    \"name\": \"username\",\n    \"type\": \"string\",\n    \"optional\": false\n  }\n]",
+            "values": "={{ $('Webhook').item.json.body }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "schemas",
+              "displayName": "schemas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "values",
+              "displayName": "values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        848,
+        -704
+      ],
+      "id": "456d20f5-7890-4620-8626-f74ffc718ca9",
+      "name": "Validate username"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31c49fcb-70c3-4337-8f59-a9316e5521c2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        -704
+      ],
+      "id": "6280b4e0-efa2-4fe9-a84e-48be9f8bf863",
+      "name": "Username valid"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1744,
+        -800
+      ],
+      "id": "3bbf65a0-b976-4801-9c04-9eba7f84aa6d",
+      "name": "Respond 500 error",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.message.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": false,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1520,
+        -800
+      ],
+      "id": "725dfb99-25b0-4e9a-9759-23818dfe59ab",
+      "name": "Handle 500 error",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Log request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Validate input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update invoice": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invoice exists": {
+      "main": [
+        [
+          {
+            "node": "Update invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate username",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check invoice": {
+      "main": [
+        [
+          {
+            "node": "Invoice exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert invoice": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input valid": {
+      "main": [
+        [
+          {
+            "node": "Check invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 400 error": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate input": {
+      "main": [
+        [
+          {
+            "node": "Input valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate username": {
+      "main": [
+        [
+          {
+            "node": "Username valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Username valid": {
+      "main": [
+        [
+          {
+            "node": "Insert invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error": {
+      "main": [
+        [
+          {
+            "node": "Respond 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "fpp8hRV2VWjQKfOQ"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "adeb058b-4716-4b96-be49-0762d3851888",
+  "versionCounter": 226,
+  "triggerCount": 1,
+  "tags": [
+    {
+      "updatedAt": "2025-12-12T17:21:03.515Z",
+      "createdAt": "2025-12-12T17:21:03.515Z",
+      "id": "hvJeOftwKkWTy7R0",
+      "name": "internal"
+    }
+  ],
+  "shared": [
+    {
+      "updatedAt": "2025-11-14T05:31:19.181Z",
+      "createdAt": "2025-11-14T05:31:19.181Z",
+      "role": "workflow:owner",
+      "workflowId": "0J7362ScIc5VIo9l",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "updatedAt": "2025-12-15T18:21:50.715Z",
+  "createdAt": "2025-12-10T13:45:00.861Z",
+  "id": "NUPg08P6iZIbhUvb",
+  "name": "**Validate input",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "schemas",
+              "type": "array"
+            },
+            {
+              "name": "values",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -128
+      ],
+      "id": "df3c0ead-002d-4b64-8ad5-52cc0b6fdade",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "let errors = []\nlet input = {}\nfor (const field of $input.first().json.schemas) {\n  const key = field.name\n  const value = $input.first().json.values[field.name]\n\n  // set optional field with default and skip when value is empty (\"\", null, undefined)\n  if (field.optional && (value ?? \"\") === \"\") {\n    input[key] = field.default\n    continue;\n  } else {\n    input[key] = value\n  }\n  \n  if (typeof value != field.type.toLocaleLowerCase()) {\n    errors.push({\n      field: key,\n      issue: `Field '${key}' must be of type ${field.type}, ${typeof value} given.`})\n  }\n}\n\nreturn {\n  valid: errors.length == 0,\n  input,\n  errors\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -128
+      ],
+      "id": "1286e596-5723-49e9-8c02-a32381653a53",
+      "name": "Validate input fields"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Validate input fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate input fields": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "5107e76e-eb11-4c88-b965-d19a041c0550",
+  "versionCounter": 35,
+  "triggerCount": 0,
+  "tags": [
+    {
+      "updatedAt": "2025-12-12T17:21:03.515Z",
+      "createdAt": "2025-12-12T17:21:03.515Z",
+      "id": "hvJeOftwKkWTy7R0",
+      "name": "internal"
+    }
+  ],
+  "shared": [
+    {
+      "updatedAt": "2025-12-10T13:45:00.861Z",
+      "createdAt": "2025-12-10T13:45:00.861Z",
+      "role": "workflow:owner",
+      "workflowId": "NUPg08P6iZIbhUvb",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

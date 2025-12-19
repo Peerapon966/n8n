@@ -1,0 +1,1193 @@
+{
+  "updatedAt": "2025-12-16T04:38:08.049Z",
+  "createdAt": "2025-11-06T16:05:04.288Z",
+  "id": "oPZkajwL3bDsAM63",
+  "name": "[POST] /api/v1/invoices/put-object-url",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": true,\n  \"statusCode\": 200,\n  \"message\": null,\n  \"data\": {\n    \"id\": {{ $json.id }},\n    \"key\": {{ $json.key.quote() }},\n    \"url\": {{ $('Generate presigned URL').item.json.result.url.quote() }}\n  },\n  \"errors\": []\n}\n",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1712,
+        -688
+      ],
+      "id": "98a56b60-abe2-43dc-a32f-7e83f24dd9cc",
+      "name": "Respond",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"action\": \"PUT\",\n  \"key\": {{ $json.input.key.quote() }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        -496
+      ],
+      "id": "8a3191a1-97d7-4a14-ae80-5fdbba893793",
+      "name": "Set Lambda payload",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "function": "={{ $env.S3_PRESIGN_LAMBDA_FUNCTION_ARN }}",
+        "payload": "={{ $json }}"
+      },
+      "type": "n8n-nodes-base.awsLambda",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        -496
+      ],
+      "id": "59827a17-f3e1-4ebb-a422-3ef1a7ffeb19",
+      "name": "Generate presigned URL",
+      "executeOnce": true,
+      "retryOnFail": false,
+      "alwaysOutputData": false,
+      "credentials": {
+        "aws": {
+          "id": "LVVCpJYQF9pae3RB",
+          "name": "AWS (IAM) account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "={{ $workflow.name.split(' ')[0].trim().replace(/[\\[\\]]/g, '').toUpperCase() }}",
+        "path": "={{ $workflow.name.split(' ')[1].trim() }}",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        -400
+      ],
+      "id": "af99baa6-3ae4-41d5-9a89-af042515f76c",
+      "name": "Webhook",
+      "webhookId": "59e457a7-9259-4dc1-a768-18e9ebbd178b",
+      "retryOnFail": true,
+      "executeOnce": true,
+      "alwaysOutputData": false,
+      "notesInFlow": true,
+      "notes": "{\n    key: string,\n    username: string,\n    override: boolean (optional)\n}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f483b1e3-b9fe-4025-97e3-8395e6185d6b",
+              "leftValue": "={{ $json.input.hasField('overwrite') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f3b277e6-e363-4731-98bb-656e864cc950",
+              "leftValue": "={{ $json.input.overwrite }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        -400
+      ],
+      "id": "d6589d89-8906-4d50-a873-64f2fbdee612",
+      "name": "Overwrite file",
+      "notesInFlow": true,
+      "notes": "True if overwrite field doesn't exist or explicitly set to true"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS (SELECT 1 FROM invoice WHERE key = '{{ $json.body.key }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        592,
+        -328
+      ],
+      "id": "093c400f-305c-4032-903e-b618aed5e500",
+      "name": "Check key",
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f483b1e3-b9fe-4025-97e3-8395e6185d6b",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        -328
+      ],
+      "id": "402b3284-7a0d-45d5-bedc-825612367318",
+      "name": "Key not exists"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "invoice",
+          "mode": "list",
+          "cachedResultName": "invoice"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "created_by": "={{ $('Overwrite file').item.json.input.username }}",
+            "updated_by": "={{ $('Overwrite file').item.json.input.username }}",
+            "key": "={{ $('Overwrite file').item.json.input.key }}"
+          },
+          "matchingColumns": [
+            "key"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "created_by",
+              "displayName": "created_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "updated_by",
+              "displayName": "updated_by",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "is_uploaded",
+              "displayName": "is_uploaded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "outputColumns": [
+            "id",
+            "key"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1488,
+        -592
+      ],
+      "id": "f9938902-95de-4c2c-b76a-d08d651149f4",
+      "name": "Get ID",
+      "executeOnce": true,
+      "retryOnFail": false,
+      "credentials": {
+        "postgres": {
+          "id": "OcuRcYDT49jWUabT",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31c49fcb-70c3-4337-8f59-a9316e5521c2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        144,
+        -304
+      ],
+      "id": "44382afe-fb32-4c60-88ba-78926ed61f52",
+      "name": "Input valid"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7enGhBPQhi23ujs4",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/7enGhBPQhi23ujs4",
+          "cachedResultName": "**Write log to file"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "log": "={{ Object.assign({}, { \"timestamp\": $now.toISO(), \"level\": \"INFO\" }, $json) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "log",
+              "displayName": "log",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        -496
+      ],
+      "id": "332e10be-e3b5-4570-964b-8ffe4b0c3443",
+      "name": "Log request"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "errorCode": 400,
+            "message": "=Duplicated key: {{ $('Validate input').item.json.key }}; try using different key or set 'overwrite' to true",
+            "overwriteErrMsg": false,
+            "includeErrInResponse": false,
+            "errors": "[]"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        -280
+      ],
+      "id": "e2bd473a-3264-405e-981a-8cd20a720c08",
+      "name": "Handle 400 error (duplicate key)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.message.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": false,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1712,
+        -496
+      ],
+      "id": "d6ffb35d-885f-4fda-b9ec-af445415ecf9",
+      "name": "Handle 500 error (PostgreSQL)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "={{ $prevNode.name }}",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "message": "={{ $json.error.quote() }}",
+            "errorCode": 500,
+            "overwriteErrMsg": true,
+            "includeErrInResponse": true,
+            "errors": "={{ [ $json.error ] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1712,
+        -304
+      ],
+      "id": "70d62996-f518-4b3b-af48-4f6720ff49e9",
+      "name": "Handle 500 error (Lambda)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NUPg08P6iZIbhUvb",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/NUPg08P6iZIbhUvb",
+          "cachedResultName": "**Validate input"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schemas": "=[\n  {\n    \"name\": \"key\",\n    \"type\": \"string\",\n    \"optional\": false\n  },\n  {\n    \"name\": \"username\",\n    \"type\": \"string\",\n    \"optional\": false\n  }\n]",
+            "values": "={{ $json.body }}"
+          },
+          "matchingColumns": [
+            "input"
+          ],
+          "schema": [
+            {
+              "id": "schemas",
+              "displayName": "schemas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "values",
+              "displayName": "values",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        -304
+      ],
+      "id": "4cc16a30-8a65-4981-a874-e491dd959f29",
+      "name": "Validate input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1936,
+        -400
+      ],
+      "id": "809f0033-2ca3-4f13-8cd3-36beadc50246",
+      "name": "Respond 500 error",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1264,
+        -184
+      ],
+      "id": "3a1b3d96-a970-497c-b955-649fe9593401",
+      "name": "Respond 400 error",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fpp8hRV2VWjQKfOQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fpp8hRV2VWjQKfOQ",
+          "cachedResultName": "**Handle error"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "={{ $workflow.name }}",
+            "node": "Validate input",
+            "input": "={{ $('Webhook').item.json.body }}",
+            "errorCode": 400,
+            "errors": "={{ $json.errors }}",
+            "includeErrInResponse": true,
+            "overwriteErrMsg": true
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "node",
+              "displayName": "node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "input",
+              "displayName": "input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "errorCode",
+              "displayName": "errorCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "array",
+              "removed": false
+            },
+            {
+              "id": "overwriteErrMsg",
+              "displayName": "overwriteErrMsg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "includeErrInResponse",
+              "displayName": "includeErrInResponse",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        -88
+      ],
+      "id": "d72b5f71-9cc8-41ea-acf1-5c4406ef07c7",
+      "name": "Handle 400 error (Invalid input)",
+      "executeOnce": true,
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Set Lambda payload": {
+      "main": [
+        [
+          {
+            "node": "Generate presigned URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate presigned URL": {
+      "main": [
+        [
+          {
+            "node": "Get ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (Lambda)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Log request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Validate input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond": {
+      "main": [
+        []
+      ]
+    },
+    "Overwrite file": {
+      "main": [
+        [
+          {
+            "node": "Set Lambda payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check key": {
+      "main": [
+        [
+          {
+            "node": "Key not exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Key not exists": {
+      "main": [
+        [
+          {
+            "node": "Set Lambda payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error (duplicate key)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get ID": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 500 error (PostgreSQL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input valid": {
+      "main": [
+        [
+          {
+            "node": "Overwrite file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle 400 error (Invalid input)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 400 error (duplicate key)": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (PostgreSQL)": {
+      "main": [
+        [
+          {
+            "node": "Respond 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 500 error (Lambda)": {
+      "main": [
+        [
+          {
+            "node": "Respond 500 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate input": {
+      "main": [
+        [
+          {
+            "node": "Input valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle 400 error (Invalid input)": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "fpp8hRV2VWjQKfOQ"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "30467f10-3e33-4bb0-8f73-402d0d0e0e2c",
+  "versionCounter": 292,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2025-11-14T05:31:19.181Z",
+      "createdAt": "2025-11-14T05:31:19.181Z",
+      "role": "workflow:owner",
+      "workflowId": "oPZkajwL3bDsAM63",
+      "projectId": "rhxZQs9R4R5EgiVa",
+      "project": {
+        "updatedAt": "2025-11-14T05:20:51.715Z",
+        "createdAt": "2025-11-14T05:16:18.677Z",
+        "id": "rhxZQs9R4R5EgiVa",
+        "name": "Peerapon Boonkaweenapanon <peerapon.boonkaweenapanon@global.ntt>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}
