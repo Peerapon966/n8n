@@ -1,0 +1,44 @@
+{{- $ingress := dict "enabled" false }}
+
+{{- range $key, $val := .Values.services }}
+  {{- if and (hasKey $val "ingress") ($val.ingress.enabled | default false) }}
+    {{- $_ := set $ingress "enabled" true }}
+    {{- $_ := set $ingress $key ($val.ingress | deepCopy) }}
+  {{- end }}
+{{- end }}
+
+{{- if $ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "stock.fullname" . }}-ingress
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostname }}
+      secretName: {{ required "A valid ingress.tls.secretName entry required!" .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.hostname }}
+      http:
+        paths:
+          {{- range $key, $val := (omit $ingress "enabled") }}
+          - path: {{ $val.path }}
+            pathType: {{ $val.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ printf "%s-%s" (include "stock.fullname" $) (regexReplaceAll "([a-z0-9])([A-Z])" $key "${1}-${2}" | lower) }}
+                port:
+                  number: {{ (index $.Values.services $key).servicePort }}
+          {{- end }}
+{{- end }}

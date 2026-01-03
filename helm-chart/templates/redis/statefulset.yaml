@@ -1,0 +1,124 @@
+{{- if .Values.services.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "stock.fullname" . }}-redis
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "stock.name" . }}-redis
+  {{- if not .Values.services.redis.enableAutoScaling }}
+  replicas: {{ .Values.services.redis.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "stock.fullname" . }}-redis
+  template:
+    metadata:
+      labels:
+        {{- include "stock.labels" . | nindent 8 }}
+        app: {{ include "stock.fullname" . }}-redis
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/redis/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: redis
+          image: {{ .Values.services.redis.image | default "redis:8.4-alpine" }}
+          imagePullPolicy: {{ .Values.services.redis.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.services.redis.containerPort | default 6379 }}
+              protocol: TCP
+          command: [ "sh", "-c" ]
+          args:
+            - |
+              MASTER_ADDR="${PREFIX}-redis-0.${PREFIX}-redis.${NAMESPACE}.svc.cluster.local"
+
+              if [ "$(hostname)" = "${PREFIX}-redis-0" ]; then
+                echo "Starting as Primary"
+                exec redis-server \
+                  --appendonly yes \
+                  --appendfsync everysec \
+                  --requirepass "$REDIS_PASSWORD" \
+                  --save 60 1
+              else
+                echo "Starting as Replica"
+                # Wait for master DNS to be ready before starting
+                until getent hosts $MASTER_ADDR; do
+                  echo "Waiting for master $MASTER_ADDR..."
+                  sleep 2
+                done
+                
+                exec redis-server \
+                  --appendonly yes \
+                  --appendfsync everysec \
+                  --requirepass "$REDIS_PASSWORD" \
+                  --masterauth "$REDIS_PASSWORD" \
+                  --save 60 1 \
+                  --replicaof $MASTER_ADDR 6379
+              fi
+          {{- with .Values.services.redis.probes }}
+            {{- range $key, $val := . }}
+              {{- if and $val (eq (default true $val.enabled) true) }}
+                {{- $key | nindent 10 }}:
+                  {{- omit $val "enabled" | toYaml | nindent 12 }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.services.redis.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          env:
+            - name: PREFIX
+              value: {{ include "stock.fullname" . }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+          envFrom:
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-redis
+        {{- if .Values.services.redis.enablePrometheusMetrics }}
+        - name: redis-exporter
+          image: oliver006/redis_exporter:latest
+          securityContext:
+            runAsUser: 59000
+            runAsGroup: 59000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 100m
+              memory: 200Mi
+          ports:
+            - containerPort: 9121
+              name: metrics
+              protocol: TCP
+        {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.n8nMain.allowControlPlane }}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.services.redis.terminationGracePeriodSeconds | default 30 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec: {{- toYaml (required "A valid redis.volumeClaimTemplatesSpec entry required!" .Values.services.redis.volumeClaimTemplatesSpec) | nindent 8 }}
+{{- end }}

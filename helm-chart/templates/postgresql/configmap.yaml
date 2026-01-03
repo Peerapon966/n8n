@@ -1,0 +1,13 @@
+{{- if .Values.services.postgresql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "stock.fullname" . }}-postgresql
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+type: Opaque
+data:
+  {{- range $key, $value := .Values.services.postgresql.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}

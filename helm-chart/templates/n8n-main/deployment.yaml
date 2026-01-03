@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "stock.fullname" . }}-n8n-main
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.services.n8nMain.enableAutoScaling }}
+  replicas: {{ .Values.services.n8nMain.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ include "stock.fullname" . }}-n8n-main
+  template:
+    metadata:
+      labels:
+        {{- include "stock.labels" . | nindent 8 }}
+        app: {{ include "stock.fullname" . }}-n8n-main
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/n8n-main/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/n8n-main/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: n8n
+          image: {{ .Values.services.n8nMain.image | default "n8nio/n8n:1.121.3-amd64" }}
+          imagePullPolicy: {{ .Values.services.n8nMain.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: app
+              containerPort: {{ .Values.services.n8nMain.containerPort | default 5678 }}
+              protocol: TCP
+            {{- if .Values.services.n8nMain.enablePrometheusMetrics }}
+            - name: metrics
+              containerPort: {{ .Values.services.n8nMain.containerPort | default 5678 }}
+              protocol: TCP
+            {{- end }}
+          {{- with .Values.services.n8nMain.probes }}
+            {{- range $key, $val := . }}
+              {{- if and $val (eq (default true $val.enabled) true) }}
+                {{- $key | nindent 10 }}:
+                  {{- omit $val "enabled" | toYaml | nindent 12 }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.services.n8nMain.resources.n8n }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/n8n
+          envFrom:
+            - configMapRef:
+                name: {{ include "stock.fullname" . }}-n8n-main
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-n8n-main
+        - name: log-collector
+          image: busybox:latest
+          command: ["/bin/sh", "-c", "tail -n+1 -F /var/log/n8n/*.log"]
+          {{- with .Values.services.n8nMain.resources.logCollector }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/n8n
+      volumes:
+        - name: logs
+          emptyDir:
+            sizeLimit: {{ .Values.services.n8nMain.logVolumeSize | default "2Gi" }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.n8nMain.allowControlPlane }}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.services.n8nMain.terminationGracePeriodSeconds | default 30 }}

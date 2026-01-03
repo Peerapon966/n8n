@@ -1,0 +1,26 @@
+{{- $metrics := dict "enabled" false }}
+
+{{- range $name, $svc := .Values.services }}
+  {{- if $svc.enablePrometheusMetrics | default false }}
+    {{- $_ := set $metrics "enabled" true }}
+  {{- end }}
+{{- end }}
+
+{{- if $metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "stock.fullname" . }}-servicemonitor
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "stock.prometheusLabels" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+{{- end }}

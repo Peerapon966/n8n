@@ -1,0 +1,32 @@
+{{- if and .Values.services.redis.enabled .Values.services.redis.enableAutoScaling }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "stock.fullname" . }}-redis
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "stock.fullname" . }}-redis
+  minReplicas: {{ .Values.services.redis.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.services.redis.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.services.redis.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.redis.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.services.redis.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.redis.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

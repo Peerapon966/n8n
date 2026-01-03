@@ -1,0 +1,513 @@
+# podSecurityContext: security context applied to all pods
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# affinity: node affinity rules for all pods
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
+
+ingress:
+  # enabled: enable ingress resource for n8n service
+  enabled: true
+
+  # annotations: annotations to add to the ingress resource
+  annotations:
+    # kubernetes.io/ingress.class: cilium
+
+  # hostname: hostname for the ingress resource
+  hostname: n8n.local
+
+  # className: default ingress class name for the ingress resource
+  className: cilium
+
+  # tls: TLS configuration for the ingress resource
+  tls:
+    enabled: false
+    secretName:
+
+services:
+  # n8nMain: configuration for n8n main deployment
+  n8nMain:
+    # allowControlPlane: allow scheduling n8n main pods on control plane nodes
+    allowControlPlane: false
+
+    # image: docker image for n8n main container
+    image: n8nio/n8n:1.121.3-amd64
+
+    # imagePullPolicy: image pull policy for n8n main container
+    imagePullPolicy: IfNotPresent
+
+    # replicaCount: number of n8n main instances. Ignored if autoscaling is enabled.
+    replicaCount: 1
+
+    # containerPort: port that n8n main container listens on
+    containerPort: 5678
+
+    # servicePort: port that n8n main service exposes. i.e., the port to access n8n main service.
+    servicePort: 80
+
+    # enableAutoScaling: enable autoscaling for n8n main deployment
+    enableAutoScaling: true
+
+    # autoscaling: settings for n8n main deployment autoscaling. Ignored if enableAutoScaling is false.
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+
+    # ingress: ingress configuration for n8n main service
+    ingress:
+      enabled: true
+      path: /
+      pathType: Prefix
+
+    # logVolumeSize: size of the emptyDir volume for n8n main logs
+    logVolumeSize: 2Gi
+
+    # terminationGracePeriodSeconds: graceful shutdown period for n8n main pods in seconds
+    terminationGracePeriodSeconds: 30
+
+    # enablePrometheusMetrics: enable Prometheus metrics for n8n main container. (ignored if enabled is false).
+    enablePrometheusMetrics: true
+
+    # env: non-secret environment variables for n8n main container. Will be passed to the container with ConfigMap.
+    env:
+      GENERIC_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      N8N_AWS_SYSTEM_CREDENTIALS_ACCESS_ENABLED: true
+      N8N_REINSTALL_MISSING_PACKAGES: true
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
+      N8N_SECURE_COOKIE: true
+      N8N_PAYLOAD_SIZE_MAX: 500
+      N8N_FORMDATA_FILE_SIZE_MAX: 500
+      GENERIC_WEBHOOK_BODY_SIZE_MAX: 500
+      N8N_HOST:
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL:
+      N8N_RUNNERS_ENABLED: true
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      NODE_ENV: production
+      N8N_LOG_LEVEL: info
+      N8N_LOG_OUTPUT: console,file
+      DB_LOGGING_ENABLED: true
+      N8N_METRICS: true
+      N8N_METRICS_INCLUDE_QUEUE_METRICS: true
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
+      QUEUE_HEALTH_CHECK_ACTIVE: true
+
+    # secret: secret environment variables for n8n main container. Will be passed to the container with Secret.
+    secret:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST:
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_USER:
+      DB_POSTGRESDB_SCHEMA: n8n
+      DB_POSTGRESDB_PASSWORD:
+      QUEUE_BULL_REDIS_HOST:
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD:
+      N8N_ENCRYPTION_KEY:
+
+    # probes: health check probes for n8n main container. Either set probe value to null or enabled to false to disable specific probe.
+    probes:
+      startupProbe:
+        enabled: true
+        httpGet:
+          path: /healthz/readiness
+          port: app
+        failureThreshold: 15
+        periodSeconds: 10
+      readinessProbe:
+        enabled: true
+        httpGet:
+          path: /healthz/readiness
+          port: app
+        periodSeconds: 5
+      livenessProbe:
+        enabled: true
+        httpGet:
+          path: /healthz
+          port: app
+        periodSeconds: 10
+        failureThreshold: 3
+
+    # resources: resource requests and limits for n8n main deployment
+    resources:
+      n8n:
+        limits:
+          cpu: 250m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      logCollector:
+        limits:
+          cpu: 100m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+
+    # job: configuration for job resources related to n8n main deployment
+    job:
+      # import: configuration for n8n import job (to import workflows and credentials)
+      import:
+        # image: docker image for n8n import container
+        image:
+
+        # dataPath: path to the workflow/credential files inside the data image container
+        dataPath: /home/node/.n8n/data/n8n
+
+        # resources: resource requests and limits for n8n import container
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+
+      # migration: configuration for liquibase job to initialize postgresql database. Enable this if you have initial database migration to run.
+      migration:
+        # enabled: enable liquibase job to initialize database schema (enabling this will force the import job to run as well)
+        enabled: true
+
+        # changelogPath: path to the changelog files inside the data image container
+        changelogPath: /home/node/.n8n/data/liquibase
+
+        # changelogFile: name of the main changelog file
+        changelogFile: main.xml
+
+        # targetDatabase: database connection settings to migrate the database
+        targetDatabase:
+          # useLocalDatabase: set to true to use the same database as n8n main deployment
+          useLocalDatabase: true
+
+          # type: database type (e.g., postgresdb, mysql, mariadb, mssql, oracle) (ignored if useLocalDatabase is true)
+          type: postgresql
+
+          # host: database host address (ignored if useLocalDatabase is true)
+          host:
+
+          # port: database port (ignored if useLocalDatabase is true)
+          port: 5432
+
+          # database: database name (ignored if useLocalDatabase is true)
+          database: n8n
+
+          # schema: database schema
+          schema: public
+
+          # user: database user
+          user:
+
+          # password: database user password
+          password:
+
+        # resources: resource requests and limits for liquibase container
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+
+      # allowControlPlane: allow scheduling job pods on control plane nodes
+      allowControlPlane: false
+
+      # backoffLimit: number of retries before marking job as failed
+      backoffLimit: 3
+
+  # n8nWorker: configuration for n8n worker deployment
+  n8nWorker:
+    # allowControlPlane: allow scheduling n8n worker pods on control plane nodes
+    allowControlPlane: false
+
+    # image: docker image for n8n worker container
+    image: n8nio/n8n:1.121.3-amd64
+
+    # imagePullPolicy: image pull policy for n8n worker container
+    imagePullPolicy: IfNotPresent
+
+    # replicaCount: number of n8n worker instances. Ignored if autoscaling is enabled.
+    replicaCount: 1
+
+    # containerPort: port that n8n worker container listens on
+    containerPort: 5678
+
+    # enableAutoScaling: enable autoscaling for n8n worker deployment
+    enableAutoScaling: true
+
+    # autoscaling: settings for n8n worker deployment autoscaling. Ignored if enableAutoScaling is false.
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+
+    # logVolumeSize: size of the emptyDir volume for n8n worker logs
+    logVolumeSize: 2Gi
+
+    # terminationGracePeriodSeconds: graceful shutdown period for n8n worker pods in seconds
+    terminationGracePeriodSeconds: 30
+
+    # enablePrometheusMetrics: enable Prometheus metrics for n8n worker container. (ignored if enabled is false).
+    enablePrometheusMetrics: true
+
+    # env: non-secret environment variables for n8n worker container. Will be passed to the container with ConfigMap.
+    env:
+      GENERIC_TIMEZONE: Asia/Bangkok
+      TZ: Asia/Bangkok
+      N8N_AWS_SYSTEM_CREDENTIALS_ACCESS_ENABLED: true
+      N8N_REINSTALL_MISSING_PACKAGES: true
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
+      N8N_SECURE_COOKIE: true
+      N8N_PAYLOAD_SIZE_MAX: 500
+      N8N_FORMDATA_FILE_SIZE_MAX: 500
+      N8N_RUNNERS_ENABLED: true
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: 0.0.0.0
+      NODE_ENV: production
+      N8N_LOG_LEVEL: info
+      N8N_LOG_OUTPUT: console,file
+      DB_LOGGING_ENABLED: true
+      N8N_METRICS: true
+      N8N_METRICS_INCLUDE_QUEUE_METRICS: true
+      N8N_PORT: 5678
+
+    # secret: secret environment variables for n8n worker container. Will be passed to the container with Secret.
+    secret:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST:
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_USER:
+      DB_POSTGRESDB_SCHEMA: public
+      DB_POSTGRESDB_PASSWORD:
+      QUEUE_BULL_REDIS_HOST:
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD:
+      N8N_ENCRYPTION_KEY:
+
+    # probes: health check probes for n8n worker container. Either set probe value to null or enabled to false to disable specific probe.
+    probes:
+      startupProbe:
+        enabled: true
+        httpGet:
+          path: /healthz/readiness
+          port: app
+        failureThreshold: 15
+        periodSeconds: 10
+      readinessProbe:
+        enabled: true
+        httpGet:
+          path: /healthz/readiness
+          port: app
+        periodSeconds: 5
+      livenessProbe:
+        enabled: true
+        httpGet:
+          path: /healthz
+          port: app
+        periodSeconds: 10
+        failureThreshold: 3
+
+    # resources: resource requests and limits for n8n worker deployment
+    resources:
+      n8n:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      logCollector:
+        limits:
+          cpu: 100m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+
+  # postgresql: configuration for postgresql deployment
+  postgresql:
+    # enabled: enable postgresql deployment on Kubernetes cluster
+    enabled: false
+
+    # allowControlPlane: allow scheduling postgresql pods on control plane nodes (ignored if enabled is false).
+    allowControlPlane: false
+
+    # image: docker image for postgresql container (ignored if enabled is false).
+    image: postgres:17.4-alpine
+
+    # imagePullPolicy: image pull policy for postgresql container (ignored if enabled is false).
+    imagePullPolicy: IfNotPresent
+
+    # replicaCount: number of postgresql instances. (ignored if enabled is false or autoscaling is enabled).
+    replicaCount: 1
+
+    # containerPort: port that postgresql container listens on (ignored if enabled is false).
+    containerPort: 5432
+
+    # servicePort: port that postgresql service exposes. i.e., the port to access postgresql service. (ignored if enabled is false).
+    servicePort: 5432
+
+    # volumeClaimTemplatesSpec: specification for the volume claim template used to create persistent volumes for postgresql pods. (ignored if enabled is false).
+    volumeClaimTemplatesSpec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 2Gi
+
+    # terminationGracePeriodSeconds: graceful shutdown period for postgresql pods in seconds (ignored if enabled is false).
+    terminationGracePeriodSeconds: 30
+
+    # enablePrometheusMetrics: enable Prometheus metrics for postgresql container. (ignored if enabled is false).
+    enablePrometheusMetrics: true
+
+    # env: non-secret environment variables for postgresql container. Will be passed to the container with ConfigMap. (ignored if enabled is false).
+    env:
+      POSTGRES_DB: n8n
+      TZ: Asia/Bangkok
+      PGTZ: Asia/Bangkok
+
+    # secret: secret environment variables for postgresql container. Will be passed to the container with Secret. (ignored if enabled is false).
+    secret:
+      POSTGRES_USER:
+      POSTGRES_PASSWORD:
+      POSTGRES_NON_ROOT_USER:
+      POSTGRES_NON_ROOT_PASSWORD:
+
+    # probes: health check probes for postgresql container. Either set probe value to null or enabled to false to disable specific probe. (ignored if enabled is false).
+    probes:
+      startupProbe:
+        enabled: true
+        exec:
+          command:
+            - sh
+            - -c
+            - "pg_isready -U $$POSTGRES_USER"
+        failureThreshold: 15
+        periodSeconds: 10
+      readinessProbe:
+        enabled: true
+        exec:
+          command:
+            - sh
+            - -c
+            - "pg_isready -U $$POSTGRES_USER"
+        periodSeconds: 5
+        failureThreshold: 3
+        timeoutSeconds: 2
+      livenessProbe:
+        enabled: true
+        tcpSocket:
+          port: postgresql
+        periodSeconds: 5
+        failureThreshold: 3
+
+    # resources: resource requests and limits for postgresql container. (ignored if enabled is false).
+    resources:
+      limits:
+        cpu: 200m
+        memory: 2Gi
+      requests:
+        cpu: 50m
+        memory: 1Gi
+
+  # redis: configuration for redis deployment
+  redis:
+    # enabled: enable redis deployment on Kubernetes cluster
+    enabled: true
+
+    # allowControlPlane: allow scheduling redis pods on control plane nodes (ignored if enabled is false).
+    allowControlPlane: false
+
+    # image: docker image for redis container (ignored if enabled is false).
+    image: redis:8.4-alpine
+
+    # imagePullPolicy: image pull policy for redis container (ignored if enabled is false).
+    imagePullPolicy: IfNotPresent
+
+    # replicaCount: number of redis instances. (ignored if enabled is false or autoscaling is enabled).
+    replicaCount: 1
+
+    # containerPort: port that redis container listens on (ignored if enabled is false).
+    containerPort: 6379
+
+    # servicePort: port that redis service exposes. i.e., the port to access redis service. (ignored if enabled is false).
+    servicePort: 6379
+
+    # enableAutoScaling: enable autoscaling for redis deployment (ignored if enabled is false).
+    enableAutoScaling: true
+
+    # autoscaling: settings for redis deployment autoscaling. (ignored if enabled is false).
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+
+    # volumeClaimTemplatesSpec: specification for the volume claim template used to create persistent volumes for redis pods. (ignored if enabled is false).
+    volumeClaimTemplatesSpec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 2Gi
+
+    # terminationGracePeriodSeconds: graceful shutdown period for redis pods in seconds (ignored if enabled is false).
+    terminationGracePeriodSeconds: 30
+
+    # enablePrometheusMetrics: enable Prometheus metrics for redis container. (ignored if enabled is false).
+    enablePrometheusMetrics: true
+
+    # secret: secret environment variables for redis container. Will be passed to the container with Secret. (ignored if enabled is false).
+    secret:
+      REDIS_PASSWORD:
+
+    # probes: health check probes for redis container. Either set probe value to null or enabled to false to disable specific probe. (ignored if enabled is false).
+    probes:
+      readinessProbe:
+        enabled: true
+        exec:
+          command:
+            - sh
+            - -c
+            - "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        failureThreshold: 3
+        timeoutSeconds: 2
+      livenessProbe:
+        enabled: true
+        tcpSocket:
+          port: redis
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        failureThreshold: 3
+
+    # resources: resource requests and limits for redis container. (ignored if enabled is false).
+    resources:
+      limits:
+        cpu: 200m
+        memory: 2Gi
+      requests:
+        cpu: 50m
+        memory: 1Gi

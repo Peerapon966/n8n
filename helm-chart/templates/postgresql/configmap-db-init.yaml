@@ -1,0 +1,97 @@
+{{- if .Values.services.postgresql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "stock.fullname" . }}-postgresql-init-script
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+data:
+  create-user.sh: |
+    #!/bin/bash
+
+    : "${POSTGRES_USER:?Root user not set}"
+    : "${POSTGRES_DB:?Database name not set}"
+
+    psql_cmd=(psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}")
+
+    # Create n8n user with full privileges on specified schema
+    if [[ -n "${POSTGRES_N8N_USER:-}" && -n "${POSTGRES_N8N_PASSWORD:-}" && -n "${POSTGRES_N8N_SCHEMA:-}" ]]; then
+      echo "Configuring n8n user '${POSTGRES_N8N_USER}' with full privileges on schema '${POSTGRES_N8N_SCHEMA}' in database '${POSTGRES_DB}'."
+      "${psql_cmd[@]}" \
+        --set=n8n_user="${POSTGRES_N8N_USER}" \
+        --set=n8n_pass="${POSTGRES_N8N_PASSWORD}" \
+        --set=n8n_schema="${POSTGRES_N8N_SCHEMA}" \
+        --set=db_name="${POSTGRES_DB}" <<'EOSQL'
+        DO $do$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'n8n_user') THEN
+            EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'n8n_user', :'n8n_pass');
+          ELSE
+            EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'n8n_user', :'n8n_pass');
+          END IF;
+          EXECUTE format('ALTER ROLE %I SET SEARCH_PATH TO %I,public', :'n8n_user', :'n8n_schema');
+        END
+        $do$;
+        DO $do$
+        BEGIN
+          EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', :'n8n_schema');
+          EXECUTE format('ALTER SCHEMA %I OWNER TO %I', :'n8n_schema', :'n8n_user');
+        END
+        $do$;
+        GRANT CONNECT, TEMP ON DATABASE :"db_name" TO :"n8n_user";
+        GRANT ALL ON SCHEMA :"n8n_schema" TO :"n8n_user";
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA :"n8n_schema" TO :"n8n_user";
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA :"n8n_schema" TO :"n8n_user";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA :"n8n_schema" GRANT ALL PRIVILEGES ON TABLES TO :"n8n_user";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA :"n8n_schema" GRANT ALL PRIVILEGES ON SEQUENCES TO :"n8n_user";
+EOSQL
+    else
+      echo "Skipping n8n user creation; POSTGRES_N8N_USER/PASSWORD/SCHEMA not fully provided."
+    fi
+
+    # Create non-root user with CRUD privileges on the specified database
+    if [[ -n "${POSTGRES_NON_ROOT_USER:-}" && -n "${POSTGRES_NON_ROOT_PASSWORD:-}" ]]; then
+      echo "Configuring non-root user '${POSTGRES_NON_ROOT_USER}' with CRUD privileges on database '${POSTGRES_DB}'."
+      "${psql_cmd[@]}" --set=non_root_user="${POSTGRES_NON_ROOT_USER}" --set=non_root_pass="${POSTGRES_NON_ROOT_PASSWORD}" --set=db_name="${POSTGRES_DB}" <<'EOSQL'
+        DO $do$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'non_root_user') THEN
+            EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'non_root_user', :'non_root_pass');
+          ELSE
+            EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'non_root_user', :'non_root_pass');
+          END IF;
+        END
+        $do$;
+        GRANT CONNECT, TEMP ON DATABASE :"db_name" TO :"non_root_user";
+        GRANT ALL PRIVILEGES ON DATABASE :"db_name" TO :"non_root_user";
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO :"non_root_user";
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO :"non_root_user";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO :"non_root_user";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO :"non_root_user";
+EOSQL
+    else
+      echo "Skipping non-root user creation; POSTGRES_NON_ROOT_USER/PASSWORD not fully provided."
+    fi
+
+    # Create exporter user for Prometheus metrics with read-only access
+    if [[ -n "${DATA_SOURCE_USER:-}" && -n "${DATA_SOURCE_PASS:-}" ]]; then
+      echo "Configuring exporter user '${DATA_SOURCE_USER}' for Prometheus metrics."
+      "${psql_cmd[@]}" --set=exporter_user="${DATA_SOURCE_USER}" --set=exporter_pass="${DATA_SOURCE_PASS}" --set=db_name="${POSTGRES_DB}" <<'EOSQL'
+        DO $do$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'exporter_user') THEN
+            EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'exporter_user', :'exporter_pass');
+          ELSE
+            EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', :'exporter_user', :'exporter_pass');
+          END IF;
+          EXECUTE format('ALTER ROLE %I SET SEARCH_PATH TO pg_catalog,public', :'exporter_user');
+        END
+        $do$;
+        GRANT CONNECT ON DATABASE :"db_name" TO :"exporter_user";
+        GRANT USAGE ON SCHEMA public TO :"exporter_user";
+        GRANT pg_monitor TO :"exporter_user";
+EOSQL
+    else
+      echo "Skipping exporter user creation; DATA_SOURCE_USER/PASS not fully provided."
+    fi
+{{- end }}

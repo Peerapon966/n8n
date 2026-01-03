@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stock.fullname" . }}-n8n-main
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+    {{- if .Values.services.n8nMain.enablePrometheusMetrics }}
+      {{- include "stock.prometheusLabels" . | nindent 4 }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.services.n8nMain.servicePort | default 80 }}
+      targetPort: app
+      protocol: TCP
+      name: http
+    {{- if .Values.services.n8nMain.enablePrometheusMetrics }}
+    - port: {{ .Values.services.n8nMain.containerPort | default 5678 }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    app: {{ include "stock.fullname" . }}-n8n-main

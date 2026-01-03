@@ -1,0 +1,101 @@
+{{- if .Values.services.postgresql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "stock.fullname" . }}-postgresql
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "stock.fullname" . }}-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "stock.fullname" . }}-postgresql
+  template:
+    metadata:
+      labels:
+        {{- include "stock.labels" . | nindent 8 }}
+        app: {{ include "stock.fullname" . }}-postgresql
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/postgresql/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgresql
+          image: {{ .Values.services.postgresql.image | default "postgres:17.4-alpine" }}
+          imagePullPolicy: {{ .Values.services.postgresql.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: postgresql
+              containerPort: {{ .Values.services.postgresql.containerPort | default 5432 }}
+              protocol: TCP
+          {{- with .Values.services.postgresql.probes }}
+            {{- range $key, $val := . }}
+              {{- if and $val (eq (default true $val.enabled) true) }}
+                {{- $key | nindent 10 }}:
+                  {{- omit $val "enabled" | toYaml | nindent 12 }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.services.postgresql.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          envFrom:
+            - configMapRef:
+                name: {{ include "stock.fullname" . }}-postgresql
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-postgresql
+        {{- if .Values.services.postgresql.enablePrometheusMetrics }}
+        - name: postgresql-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter
+          securityContext:
+            runAsUser: 59000
+            runAsGroup: 59000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 9187
+              name: metrics
+              protocol: TCP
+          env:
+            - name: DATA_SOURCE_URI
+              value: {{- printf "localhost:%s/%s?sslmode=disable" (.Values.services.postgresql.containerPort | default 5432) (required "A valid postgresql.env.POSTGRES_DB environment variable required!" .Values.services.postgresql.env.POSTGRES_DB) | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-postgresql
+        {{- end }}
+      volumes:
+        - name: init-script
+          configMap:
+            name: {{ include "stock.fullname" . }}-postgresql-init-script
+            defaultMode: 0755
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.postgresql.allowControlPlane }}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.services.postgresql.terminationGracePeriodSeconds | default 30 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec: {{- toYaml (required "A valid postgresql.volumeClaimTemplatesSpec entry required!" .Values.services.postgresql.volumeClaimTemplatesSpec) | nindent 8 }}
+{{- end }}

@@ -1,0 +1,26 @@
+{{- if .Values.services.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stock.fullname" . }}-redis
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+    {{- if .Values.services.redis.enablePrometheusMetrics }}
+      {{- include "stock.prometheusLabels" . | nindent 4 }}
+    {{- end }}
+spec:
+  clusterIP: None
+  ports:
+    - protocol: TCP
+      port: {{ .Values.services.redis.containerPort | default 6379 }}
+      targetPort: redis
+      name: redis
+    {{- if .Values.services.redis.enablePrometheusMetrics }}
+    - protocol: TCP
+      port: 9121
+      targetPort: metrics
+      name: metrics
+    {{- end }}
+  selector:
+    app: {{ include "stock.fullname" . }}-redis
+{{- end }}

@@ -1,0 +1,115 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "stock.fullname" . }}-n8n-import
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      volumes:
+        - name: data
+          emptyDir: {}
+      
+      initContainers:
+        - name: data
+          image: {{ required "A valid services.n8nMain.job.import.image entry required!" .Values.services.n8nMain.job.import.image }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              mkdir -p /data
+              cp -R {{ .Values.services.n8nMain.job.import.dataPath | trimSuffix "/" }}/. /data/n8n/
+              {{- if .Values.services.n8nMain.job.migration.enabled }}
+              cp -R {{ .Values.services.n8nMain.job.migration.changelogPath | trimSuffix "/" }}/. /data/liquibase/
+              {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+      containers:
+        - name: n8n-import
+          image: {{ .Values.services.n8nMain.image | default "n8nio/n8n:1.121.3-amd64" }}
+          imagePullPolicy: {{ .Values.services.n8nMain.imagePullPolicy | default "IfNotPresent" }}
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          command: ["sh", "-ec"]
+          args:
+            - |
+              echo "Installing postgresql client"
+              apk update
+              apk add postgresql-client
+
+              echo "Waiting for Postgres: ${DB_POSTGRESDB_HOST}:${DB_POSTGRESDB_PORT} (user=${DB_POSTGRESDB_USER}, db=${DB_POSTGRESDB_DATABASE})"
+              for i in $(seq 1 120); do
+                if pg_isready -h "$DB_POSTGRESDB_HOST" -p "$DB_POSTGRESDB_PORT" -U "$DB_POSTGRESDB_USER" -d "$DB_POSTGRESDB_DATABASE" >/dev/null 2>&1; then
+                  echo "Postgres is accepting connections."
+                  break
+                fi
+                sleep 2
+              done
+
+              echo "Importing n8n data..."
+              n8n import:credentials --separate --input=/home/node/.n8n/data/n8n/credentials/
+              n8n import:workflow --separate --input=/home/node/.n8n/data/n8n/workflows/
+          envFrom:
+            - configMapRef:
+                name: {{ include "stock.fullname" . }}-n8n-main
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-n8n-main
+          volumeMounts:
+          - name: data
+            mountPath: /home/node/.n8n/data
+          {{- with .Values.services.n8nMain.job.import.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+        {{- if .Values.services.n8nMain.job.migration.enabled }}
+        - name: liquibase
+          image: liquibase/liquibase:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          command: ["liquibase"]
+          args:
+            - "--retryAttempts=60"
+            - "--retryInterval=5"
+            - "update"
+            - {{ printf "--changeLogFile=/data/liquibase/%s" .Values.services.n8nMain.job.migration.changelogFile }}
+
+          envFrom:
+            - secretRef:
+                name: {{ include "stock.fullname" . }}-migration
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- with .Values.services.n8nMain.job.migration.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        
+      restartPolicy: Never
+    {{- with .Values.affinity }}
+    affinity:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.services.n8nMain.job.allowControlPlane }}
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+    {{- end }}
+  backoffLimit: {{ .Values.services.n8nMain.job.backoffLimit | default 3 }}

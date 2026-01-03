@@ -1,0 +1,26 @@
+{{- if .Values.services.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "stock.fullname" . }}-postgresql
+  labels:
+    {{- include "stock.labels" . | nindent 4 }}
+    {{- if .Values.services.postgresql.enablePrometheusMetrics }}
+      {{- include "stock.prometheusLabels" . | nindent 4 }}
+    {{- end }}
+spec:
+  clusterIP: None
+  ports:
+    - protocol: TCP
+      port: {{ .Values.services.postgresql.containerPort | default 5432 }}
+      targetPort: postgresql
+      name: postgresql
+  {{- if .Values.services.postgresql.enablePrometheusMetrics }}
+    - protocol: TCP
+      port: 9187
+      targetPort: metrics
+      name: metrics
+  {{- end }}
+  selector:
+    app: {{ include "stock.fullname" . }}-postgresql
+{{- end }}
