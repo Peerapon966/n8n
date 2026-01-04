@@ -19,13 +19,14 @@ spec:
         - name: data
           emptyDir: {}
       
+      {{- with .Values.services.n8nMain.job.import.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ include "stock.fullname" . }}-n8n-import
+      {{- end }}
+      
       initContainers:
         - name: data
           image: {{ required "A valid services.n8nMain.job.import.image entry required!" .Values.services.n8nMain.job.import.image }}
-          {{- with .Values.services.n8nMain.job.import.imagePullSecret }}
-          imagePullSecrets:
-            - name: {{ include "stock.fullname" . }}-n8n-import
-          {{- end }}
           command: ["sh", "-ec"]
           args:
             - |
