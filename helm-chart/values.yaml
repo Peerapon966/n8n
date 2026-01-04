@@ -170,6 +170,9 @@ services:
         # image: docker image for n8n import container
         image:
 
+        # imagePullSecret: optional field for specifying image pull secrets
+        imagePullSecret:
+
         # dataPath: path to the workflow/credential files inside the data image container
         dataPath: /home/node/.n8n/data/n8n
 
